@@ -1,6 +1,8 @@
 Pauling File Distinct Phases
 ==========
 
+[![DOI](https://zenodo.org/badge/512474958.svg)](https://doi.org/10.5281/zenodo.7693172)
+
 As known, the standard unit of the Pauling File (MPDS) data is an _entry_. All the entries are subdivided into three kinds: _crystalline structures_, _physical properties_, and _phase diagrams_. They are called _S_-, _P_- and _C_-entries, correspondingly. All these entries have persistent identifiers (similar to DOIs), e.g. [S377634](https://mpds.io/entry/S377634), [P600028](https://mpds.io/entry/P600028), or [C100027](https://mpds.io/entry/C100027).
 
 These three kinds of entries are grouped together into the distinct phases they belong. The term _distinct phase_ is often used in the alloys description, however here we apply it for all the compounds known from the scientific literature. A tremendous work was done by the Pauling File team in the past 30 years to manually distinguish about 200 000 inorganic materials phases, appeared at least once in the literature. Each phase has a unique combination of (_a_) chemical formula, (_b_) space group, and (_c_) Pearson symbol. Each phase has the permanent integer identifier called _phase_id_.
@@ -31,7 +33,7 @@ The short and full `formula` stand for the terse plain-text and detailed HTML de
 The `spg` is the space group number.
 The `pearson` is the Pearson symbol (note its numeric part which is a number of atoms in the standard crystalline unit cell).
 The `entries` is the number of the entries at the MPDS platform at the year of the release. Note these are only the `peer-reviewed` class of entries, not the `machine learning` or `ab initio calculations`. In the MPDS API the `peer-reviewed` class is referenced by `dtype` parameter equal to `1` (or `MPDSDataTypes.PEER_REVIEWED`). In the MPDS GUI this is given by the search keyword `peer-reviewed`.
-The `articles` is the number of peer-reviewed literature sources containing the particular distinct phase processed by the Pauling File team at the year of the release.
+The `articles` is the number of peer-reviewed literature sources containing the particular distinct phase processed by the Pauling File team to the year of the release.
 
 
 ## License
