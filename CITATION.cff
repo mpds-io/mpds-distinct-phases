@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+title: MPDS distinct phases
+type: dataset
+license: CC-BY-4.0
+authors:
+  - given-names: Evgeny
+    family-names: Blokhin
+    orcid: 'https://orcid.org/0000-0002-5333-3947'
+doi: 10.5281/zenodo.7693172
+url: 'https://github.com/mpds-io/mpds-distinct-phases'
+keywords:
+  - MPDS
+  - distinct phases
+  - materials phases
+  - phase id
+  - Pauling File
