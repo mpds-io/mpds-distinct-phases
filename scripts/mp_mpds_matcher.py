@@ -79,7 +79,7 @@ def mpds_downloader(api_key: str, formulas: list, unary: set):
     client = MPDSDataRetrieval(dtype=7, api_key=api_key)
 
     for el in elements:
-        print('PROCESSING: ', el)
+        print(f'PROCESSING: {el}, iteration: {elements.index(el)}')
         for cl in classes:
             if classes == "unary":
                 if el not in unary:
@@ -92,16 +92,28 @@ def mpds_downloader(api_key: str, formulas: list, unary: set):
                         mpds_ids.append(row[:3])
             except Exception as e:
                 print(e)
+        if elements.index(el) % 15 == 0:
+            pl.DataFrame(mpds_ids, ["phase_id", "formula", "symmetry"]).write_csv(
+                f"mpds_IDs_it_{elements.index(el)}.csv"
+            )
+                
+    pl.DataFrame(mpds_ids, ["phase_id", "formula", "symmetry"]).write_csv(
+        "mpds_IDs_quinary.csv"
+    )
 
+    print(f'PROCESSING: start requesting more then quinary')
     more_then_quinary = [i[:2] for i in get_composition(formulas, 6)]
     more_then_quinary_cat = [
         list(item)
         for item in set(tuple(sorted(sublist)) for sublist in more_then_quinary)
     ]
 
+    cnt = 0
     for el in more_then_quinary_cat:
         client.chillouttime = 2
         try:
+            cnt += 1
+            print(f'PROCESSING: iteration: {cnt}, from {len(more_then_quinary_cat)}')
             ans = client.get_data({"elements": "-".join(el)})
             for i, row in enumerate(ans):
                 if row[:3] not in mpds_ids:
@@ -109,7 +121,7 @@ def mpds_downloader(api_key: str, formulas: list, unary: set):
         except Exception as e:
             print(e)
     pl.DataFrame(mpds_ids, ["phase_id", "formula", "symmetry"]).write_csv(
-        "mpds_IDs_ready.csv"
+        "./mpds_IDs_ready.csv"
     )
     return mpds_ids
 
@@ -203,14 +215,15 @@ def matcher_mp_mpds(
     # run requests to MPDS
     else:
         try:
-            mpds_df = pl.read_csv("mpds_IDs_ready.csv")
+            mpds_df = pl.read_csv("./mpds_IDs_ready.csv")
             print("Data with ID from MPDS found in directory. Start matches!")
         except:
             print("Data with ID from MPDS not found in directory. Start requests!")
             unary = define_unary(formulas)
+
             mpds_df = pl.DataFrame(
                 mpds_downloader(api_key, formulas, unary),
-                columns=["phase_id", "formula", "symmetry"],
+                schema=["phase_id", "formula", "symmetry"],
             )
 
         mp_df = pl.DataFrame(
