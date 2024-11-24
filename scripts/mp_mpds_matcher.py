@@ -5,12 +5,128 @@ Match all available IDs from Materials Project with IDs from MPDS
 import json
 from typing import Optional, Union
 
+import periodictable
 import polars as pl
 from mp_api.client import MPRester
 from mpds_client import MPDSDataRetrieval
+from pymatgen.core import Composition
 
 
-def mpds_request(
+def get_composition(formulas: list, num_el_from: int = 6) -> list:
+    """
+    Get composition from chemical formula
+
+    Parameters
+    ----------
+    formulas: list
+        List of formulas from MP
+    num_el_from: int, optional
+        Number of different elements in a chemical formula that should be included in result list
+    """
+    comp = []
+    for f in formulas:
+        temp_comp = sorted([i for i in Composition(f).get_el_amt_dict().keys()])
+        if temp_comp not in comp:
+            comp.append(temp_comp)
+    comp = [i for i in comp if len(i) >= num_el_from]
+
+    return comp
+
+
+def define_unary(formulas: list) -> list:
+    """
+    Define set of formulas for unary classes
+
+    Parameters
+    ----------
+    formulas: list
+        List of formulas from MP
+
+    Returns
+    -------
+    unary: list
+        List of unary formulas which present in MP
+    """
+    unary = []
+    for f in formulas:
+        if len([i for i in Composition(f).get_el_amt_dict().keys()]) == 1:
+            unary.append([i for i in Composition(f).get_el_amt_dict().keys()][0])
+    return set(unary)
+
+
+def mpds_downloader(api_key: str, formulas: list, unary: set):
+    """
+    Download phase_ids for "unary", "binary", "ternary", "quaternary", "quinary" classes.
+    After this, results with sets of elements greater than 5 are specifically requested.
+    Unary ones are requested based on the formulas presented in MP, remaining 4 classes
+    are all based on the 188 existing elements.
+
+    Parameters
+    ----------
+    api_key: str
+        API key for MPDS
+    formulas: list
+        Formulas from MP database
+    unary: set
+        Set of unary elements, which are included in formulas from MP
+    """
+    mpds_ids = []
+    elements = [
+        element.symbol for element in periodictable.elements if element is not None
+    ]
+    classes = ["unary", "binary", "ternary", "quaternary", "quinary"]
+
+    client = MPDSDataRetrieval(dtype=7, api_key=api_key)
+
+    for el in elements:
+        print(f'PROCESSING: {el}, iteration: {elements.index(el)}')
+        for cl in classes:
+            if classes == "unary":
+                if el not in unary:
+                    continue
+            try:
+                client.chillouttime = 2
+                ans = client.get_data({"elements": el, "classes": cl})
+                for row in ans:
+                    if row[:3] not in mpds_ids:
+                        mpds_ids.append(row[:3])
+            except Exception as e:
+                print(e)
+        if elements.index(el) % 15 == 0:
+            pl.DataFrame(mpds_ids, ["phase_id", "formula", "symmetry"]).write_csv(
+                f"mpds_IDs_it_{elements.index(el)}.csv"
+            )
+                
+    pl.DataFrame(mpds_ids, ["phase_id", "formula", "symmetry"]).write_csv(
+        "mpds_IDs_quinary.csv"
+    )
+
+    print(f'PROCESSING: start requesting more then quinary')
+    more_then_quinary = [i[:2] for i in get_composition(formulas, 6)]
+    more_then_quinary_cat = [
+        list(item)
+        for item in set(tuple(sorted(sublist)) for sublist in more_then_quinary)
+    ]
+
+    cnt = 0
+    for el in more_then_quinary_cat:
+        client.chillouttime = 2
+        try:
+            cnt += 1
+            print(f'PROCESSING: iteration: {cnt}, from {len(more_then_quinary_cat)}')
+            ans = client.get_data({"elements": "-".join(el)})
+            for i, row in enumerate(ans):
+                if row[:3] not in mpds_ids:
+                    mpds_ids.append(row[:3])
+        except Exception as e:
+            print(e)
+    pl.DataFrame(mpds_ids, ["phase_id", "formula", "symmetry"]).write_csv(
+        "./mpds_IDs_ready.csv"
+    )
+    return mpds_ids
+
+
+def matcher_mp_mpds(
     mpds_id_path: Union[bool, str],
     formulas: list,
     sg: list,
@@ -18,7 +134,8 @@ def mpds_request(
     api_key: Union[bool, str] = False,
 ):
     """
-    Get phase_id from file or MPDS by client. Match ID from Materials Project and MPDS by formula and space group
+    Get phase_id from file or MPDS by client. Match ID from Materials Project and MPDS 
+    by formula and space group
 
     Parameters
     ----------
@@ -37,10 +154,9 @@ def mpds_request(
     Returns
     -------
     pl.DataFrame
-        Consist of columns: 'phase_id' (id from MPDS), 'identifier' (id from MP), symmetry, formula
+        Consist of columns: 'phase_id' (ID from MPDS), 'formula', 'symmetry', 'ID_mp' (ID from MP)
     """
     phase_ids = []
-    found, loss = 0, 0
 
     if mpds_id_path:
         with open(mpds_id_path, "r") as file:
@@ -98,67 +214,40 @@ def mpds_request(
 
     # run requests to MPDS
     else:
-        print("Raw data with MPDS phase_ids not found in directory. Start requests!")
-        client = MPDSDataRetrieval(dtype=7, api_key=api_key)
-        for i in range(len(formulas)):
-            try:
-                client.chillouttime = 2
-                ans = client.get_data({"sgs": sg[i], "formulae": formulas[i]})
-                phase_ids.append([str(ans[0][0]), mp_ids[i]])
-                found += 1
-            except Exception as e:
-                print(e)
-                if e != "HTTP error code 204: No Results (No hits)":
-                    client.chillouttime += 1
-                loss += 1
-                print("Not found:", loss)
+        try:
+            mpds_df = pl.read_csv("./mpds_IDs_ready.csv")
+            print("Data with ID from MPDS found in directory. Start matches!")
+        except:
+            print("Data with ID from MPDS not found in directory. Start requests!")
+            unary = define_unary(formulas)
 
-        print("Matches by formula and Space group found:", found)
-        return pl.DataFrame(phase_ids, schema=["phase_id", "identifier"])
+            mpds_df = pl.DataFrame(
+                mpds_downloader(api_key, formulas, unary),
+                schema=["phase_id", "formula", "symmetry"],
+            )
 
+        mp_df = pl.DataFrame(
+            {
+                "ID_mp": mp_ids,
+                "formula": formulas,
+                "symmetry": sg,
+            }
+        ).with_columns(pl.col("symmetry").cast(pl.Int64))
 
-def finding_matches_id_by_formula_sg(
-    mp_path: str, mpds_api_key: str, mpds_id_path: Union[bool, str] = False
-) -> pl.DataFrame:
-    """
-    Find 'phase_id' for material from MPDS by formula, space group from Materials Project.
-    Save answer in JSON-format
-
-    Parameters
-    ----------
-    mp_path : str
-        Math to directory for store data from Materials Project
-    mpds_api_key: srt
-        Key from MPDS account
-    mpds_id_path: Union[bool, str], optional
-        Path to json file with all phase-IDs from MPDS. By default, == False,
-        in this case phase-IDs from MPDS will be requested
-
-    Returns
-    -------
-    dfrm: pl.DataFrame
-        Consist of columns: 'phase_id' (id from MPDS), 'identifier' (id from Materials Project), symmetry, formula
-    """
-    try:
-        dfrm = pl.read_json(mp_path + "id_match.json")
-        print(f"'id_match.json' already in directory. Size: {len(dfrm)}")
-        return dfrm
-    except:
-        mp_dfrm = pl.read_json(mp_path + "all_id_mp.json")
-        dfrm = mpds_request(
-            mpds_id_path,
-            sg=list(mp_dfrm["symmetry"]),
-            formulas=list(mp_dfrm["formula"]),
-            mp_ids=list(mp_dfrm["identifier"]),
-            api_key=mpds_api_key,
+        matched_data = mpds_df.join(
+            mp_df,
+            left_on=["formula", "symmetry"],
+            right_on=["formula", "symmetry"],
+            how="inner",
         )
-        dfrm.write_json(mp_path + "id_match.json")
-        return dfrm
+
+        print("Matches by formula and Space group found:", len(matched_data))
+        return matched_data
 
 
-def mp_request(mp_path: str, api_key: str) -> pl.DataFrame:
+def mp_downloader(mp_path: str, api_key: str) -> pl.DataFrame:
     """
-    Request all available mp-ids, symmetry, chemical formulas.
+    Download all available mp-ids, symmetry, chemical formulas.
     Save in json format
     """
     try:
@@ -209,17 +298,30 @@ def id_mp_mpds_matcher(
 
     Returns
     -------
-    dfrm: pl.DataFrame
+    dfrm: pl.DataFrame with columns: 'phase_id', 'formula', 'symmetry', 'ID_mp'
+
     """
-    mp_request(mp_path, mp_api_key)
-    dfrm = finding_matches_id_by_formula_sg(mp_path, mpds_api_key, mpds_id_path)
+    mp_downloader(mp_path, mp_api_key)
+    try:
+        dfrm = pl.read_json(mp_path + "id_match.json")
+        print(f"'id_match.json' already in directory. Size: {len(dfrm)}")
+        return dfrm
+    except:
+        mp_dfrm = pl.read_json(mp_path + "all_id_mp.json")
+        dfrm = matcher_mp_mpds(
+            mpds_id_path,
+            sg=list(mp_dfrm["symmetry"]),
+            formulas=list(mp_dfrm["formula"]),
+            mp_ids=list(mp_dfrm["identifier"]),
+            api_key=mpds_api_key,
+        )
+        dfrm.write_json(mp_path + "id_match.json")
     return dfrm
 
 
 if __name__ == "__main__":
-    mp_path = "./data/mp_database/"
-    mpds_id_path = "./data/raw_mpds/mpds_phases_jan2024.json"
-    mpds_api_key = "KEY"
-    mp_api_key = "KEY"
+    mp_path = ""
+    mpds_api_key = ""
+    mp_api_key = ""
 
-    id_mp_mpds_matcher(mp_path, mp_api_key, mpds_id_path, mpds_api_key)
+    id_mp_mpds_matcher(mp_path, mp_api_key=mp_api_key, mpds_api_key=mpds_api_key)
