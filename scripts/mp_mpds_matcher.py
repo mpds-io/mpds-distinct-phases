@@ -54,7 +54,7 @@ def define_unary(formulae: list) -> list:
     return set(unary)
 
 
-def mpds_downloader(api_key: str, formulae: list, unary: set):
+def mpds_downloader(formulae: list, unary: set):
     """
     Download phase_ids for "unary", "binary", "ternary", "quaternary", "quinary" classes.
     After this, results with sets of elements greater than 5 are specifically requested.
@@ -63,8 +63,6 @@ def mpds_downloader(api_key: str, formulae: list, unary: set):
 
     Parameters
     ----------
-    api_key: str
-        API key for MPDS
     formulae: list
         Formulas from MP database
     unary: set
@@ -76,7 +74,7 @@ def mpds_downloader(api_key: str, formulae: list, unary: set):
     ]
     classes = ["unary", "binary", "ternary", "quaternary", "quinary"]
 
-    client = MPDSDataRetrieval(dtype=7, api_key=api_key)
+    client = MPDSDataRetrieval(dtype=7)
 
     for el in elements:
         print(f'PROCESSING: {el}, iteration: {elements.index(el)}')
@@ -131,7 +129,6 @@ def matcher_mp_mpds(
     formulae: list,
     sg: list,
     mp_ids: list,
-    api_key: Union[bool, str] = False,
 ):
     """
     Get phase_id from file or MPDS by client. Match ID from Materials Project and MPDS
@@ -148,8 +145,6 @@ def matcher_mp_mpds(
         Symmetry (space group) from MP
     mp_ids: list
         IDs from MP
-    api_key: Union[bool, str], optional
-        Key from MPDS account
 
     Returns
     -------
@@ -222,7 +217,7 @@ def matcher_mp_mpds(
             unary = define_unary(formulae)
 
             mpds_df = pl.DataFrame(
-                mpds_downloader(api_key, formulae, unary),
+                mpds_downloader(formulae, unary),
                 schema=["phase_id", "formula", "symmetry"],
             )
 
@@ -279,7 +274,6 @@ def id_mp_mpds_matcher(
     mp_path: str,
     mp_api_key: str,
     mpds_id_path: Union[bool, str] = False,
-    mpds_api_key: Optional[Union[bool, str]] = None,
 ) -> pl.DataFrame:
     """
     Run request all IDs from Materials Project, then match it with IDs from MPDS
@@ -293,8 +287,6 @@ def id_mp_mpds_matcher(
     mpds_id_path: Union[bool, str], optional
         Path to json file with all phase-IDs from MPDS. By default, == False,
         in this case phase-IDs from MPDS will be requested
-    mpds_api_key: Union[bool, str], optional
-        Key from MPDS account
 
     Returns
     -------
@@ -321,9 +313,10 @@ def id_mp_mpds_matcher(
 
 if __name__ == "__main__":
     mp_path = "./data/mp"
-    mpds_api_key = ""
     mp_api_key = ""
+    # NB MPDS key is taken from env
 
+    import os
     assert os.path.exists(mp_path), mp_path
 
-    id_mp_mpds_matcher(mp_path, mp_api_key, mpds_id_path, mpds_api_key)
+    id_mp_mpds_matcher(mp_path, mp_api_key)
