@@ -246,7 +246,7 @@ def mp_downloader(mp_path: str, api_key: str) -> pl.DataFrame:
     Save in json format
     """
     try:
-        dfrm = pl.read_json(mp_path + "all_id_mp.json")
+        dfrm = pl.read_json(mp_path + "/all_id_mp.json")
         print("All IDs, symmetry, formulae already present in directory")
     except:
         client = MPRester(api_key)
@@ -266,7 +266,7 @@ def mp_downloader(mp_path: str, api_key: str) -> pl.DataFrame:
             {"identifier": ans_ids, "formula": ans_formula, "symmetry": ans_sg},
             schema=["identifier", "formula", "symmetry"],
         )
-        dfrm.write_json(mp_path + "all_id_mp.json")
+        dfrm.write_json(mp_path + "/all_id_mp.json")
     return dfrm
 
 
@@ -295,19 +295,18 @@ def id_mp_mpds_matcher(
     """
     mp_downloader(mp_path, mp_api_key)
     try:
-        dfrm = pl.read_json(mp_path + "id_match.json")
+        dfrm = pl.read_json(mp_path + "/id_match.json")
         print(f"'id_match.json' already in directory. Size: {len(dfrm)}")
         return dfrm
     except:
-        mp_dfrm = pl.read_json(mp_path + "all_id_mp.json")
+        mp_dfrm = pl.read_json(mp_path + "/all_id_mp.json")
         dfrm = matcher_mp_mpds(
             mpds_id_path,
             sg=list(mp_dfrm["symmetry"]),
             formulae=list(mp_dfrm["formula"]),
-            mp_ids=list(mp_dfrm["identifier"]),
-            api_key=mpds_api_key,
+            mp_ids=list(mp_dfrm["identifier"])
         )
-        dfrm.write_json(mp_path + "id_match.json")
+        dfrm.write_json(mp_path + "/id_match.json")
     return dfrm
 
 
