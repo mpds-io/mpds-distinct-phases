@@ -2,3 +2,4 @@ mp_api
 mpds_client
 polars
 periodictable
+mp-api==0.45.3
