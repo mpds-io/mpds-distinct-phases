@@ -14,6 +14,8 @@ from mp_api.client import MPRester
 from mpds_client import APIError, MPDSDataRetrieval, MPDSDataTypes
 from pymatgen.core import Lattice, Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from dup_mpds import find_duplicates_mpds
+from dup_mp import find_duplicates_mp
 
 
 def parse_structure(data):
@@ -270,4 +272,6 @@ if __name__ == "__main__":
     mpds_file_path = False
     mp_api_key = "HERE_YOUR_API_KEY"
 
-    id_mp_mpds_matcher(mp_path, mp_api_key, mpds_file_path)
+    # id_mp_mpds_matcher(mp_path, mp_api_key, mpds_file_path)
+    find_duplicates_mpds(input_path="./atomic_structures.jsonl", output_path="./duplicate_mpds.jsonl")
+    find_duplicates_mp(input_path="./all_id_mp_upd.json")
