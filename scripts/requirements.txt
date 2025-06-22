@@ -1,4 +1,3 @@
-mp_api
 mpds_client
 polars
 periodictable
