@@ -14,8 +14,8 @@ from mp_api.client import MPRester
 from mpds_client import APIError, MPDSDataRetrieval, MPDSDataTypes
 from pymatgen.core import Lattice, Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from dup_mpds import find_duplicates_mpds
-from dup_mp import find_duplicates_mp
+
+from helpers import find_duplicates_mpds, find_duplicates_mp
 
 
 def parse_structure(data):
@@ -50,7 +50,7 @@ def mpds_downloader():
     print("---Started receiving: atomic structure")
 
     client = MPDSDataRetrieval(dtype=MPDSDataTypes.ALL)
-    client.chilouttime = 1.0
+    client.chilouttime = 2.0
 
     fp = open(os.path.join("./atomic_structures.jsonl"), "w")
     for year in range(1890, 2025):
@@ -96,7 +96,7 @@ def matcher_mp_mpds(
     Returns
     -------
     pl.DataFrame
-        Consist of columns: 'phase_id' (ID from MPDS), 'formula', 
+        Consist of columns: 'phase_id' (ID from MPDS), 'formula',
         'symmetry', 'n_atoms', 'ID_mp' (ID from MP)
     """
     if mpds_file_path:
@@ -236,7 +236,7 @@ def id_mp_mpds_matcher(
     Parameters
     ----------
     mp_path : Path
-        Path to directory for store data from Materials Project. 
+        Path to directory for store data from Materials Project.
         Columns: 'identifier', 'formula', 'symmetry', 'strucrure', 'pearson'
     mp_api_key: str
         Key from Materials Project account
